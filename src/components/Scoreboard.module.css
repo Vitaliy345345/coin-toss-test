@@ -1,0 +1,43 @@
+.scoreboard {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.wins .value {
+  color: var(--color-win);
+}
+
+.losses .value {
+  color: var(--color-lose);
+}
+
+.rounds .value {
+  color: var(--color-text-muted);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .scoreboard {
+    gap: 12px;
+  }
+}

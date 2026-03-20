@@ -1,0 +1,73 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.card {
+  padding: 32px 48px;
+  border-radius: 20px;
+  text-align: center;
+  transform: scale(0.8);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.visible .card {
+  transform: scale(1);
+}
+
+.cardWin {
+  composes: card;
+  background: linear-gradient(145deg, #0a2e1a, #0f3d22);
+  border: 2px solid var(--color-win);
+}
+
+.cardLose {
+  composes: card;
+  background: linear-gradient(145deg, #2e0a0a, #3d0f0f);
+  border: 2px solid var(--color-lose);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.cardWin .title {
+  color: var(--color-win);
+}
+
+.cardLose .title {
+  color: var(--color-lose);
+}
+
+.details {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+}
+
+.details strong {
+  color: var(--color-text);
+  text-transform: capitalize;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .card {
+    padding: 24px 36px;
+  }
+}
