@@ -3,37 +3,44 @@ import { useTick, useApplication, extend } from "@pixi/react";
 import { Graphics, Container, Text, TextStyle } from "pixi.js";
 import { useGameStore } from "../store/gameStore";
 import { useSound } from "../hooks/useSound";
-import type { CoinSide } from "../types";
+import type { CoinSide, GamePhase } from "../types";
 
 extend({ Graphics, Container, Text });
-
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3);
-}
 
 const COIN_RADIUS = 80;
 const HEADS_COLOR = 0xffd700;
 const TAILS_COLOR = 0xc0c0c0;
 const BORDER_COLOR_HEADS = 0xb8860b;
 const BORDER_COLOR_TAILS = 0x808080;
-const FLIP_SPEED = 8;
-const LANDING_DURATION = 0.8;
+const FLIP_SPEED = 50;
+const FLIP_DECAY = 1.8;
 const TOSS_HEIGHT = 120;
+const TOSS_DURATION = 0.7;
+const MAX_LANDING_DURATION = 1.5;
+const MIN_LANDING_DURATION = 0.4;
 
 interface CoinState {
   flipAngle: number;
   yOffset: number;
-  showingSide: CoinSide;
-  landingProgress: number;
   landingComplete: boolean;
   landingStartAngle: number;
   landingTargetAngle: number;
   landingStartY: number;
+  landingDuration: number;
+  landingTime: number;
   idleTime: number;
+  flipTime: number;
+  prevPhase: GamePhase;
 }
 
-function computeTargetAngle(currentAngle: number, side: CoinSide): number {
-  const minTarget = currentAngle + Math.PI * 2;
+function computeTargetAngle(
+  currentAngle: number,
+  side: CoinSide,
+  currentSpeed: number,
+): number {
+  const maxReach = currentSpeed * MAX_LANDING_DURATION * 0.5;
+  const buffer = Math.max(Math.PI * 0.3, Math.min(maxReach * 0.3, Math.PI));
+  const minTarget = currentAngle + buffer;
   const multiplesOfPi = Math.ceil(minTarget / Math.PI);
 
   const needsEven = side === "heads";
@@ -55,27 +62,16 @@ export function CoinSprite() {
   const coinRef = useRef<CoinState>({
     flipAngle: 0,
     yOffset: 0,
-    showingSide: "heads",
-    landingProgress: 0,
     landingComplete: false,
     landingStartAngle: 0,
     landingTargetAngle: 0,
     landingStartY: 0,
+    landingDuration: 1,
+    landingTime: 0,
     idleTime: 0,
+    flipTime: 0,
+    prevPhase: "idle",
   });
-
-  useEffect(() => {
-    if (phase === "flipping") {
-      coinRef.current.idleTime = 0;
-    } else if (phase === "landing" && result) {
-      const state = coinRef.current;
-      state.landingProgress = 0;
-      state.landingComplete = false;
-      state.landingStartAngle = state.flipAngle;
-      state.landingStartY = state.yOffset;
-      state.landingTargetAngle = computeTargetAngle(state.flipAngle, result);
-    }
-  }, [phase, result]);
 
   const drawCoin = useCallback((g: Graphics, side: CoinSide) => {
     g.clear();
@@ -202,34 +198,74 @@ export function CoinSprite() {
     )
       return;
 
-    if (phase === "flipping") {
-      state.flipAngle += FLIP_SPEED * dt;
-      state.yOffset = -Math.abs(Math.sin(state.flipAngle * 1.2)) * TOSS_HEIGHT;
+    if (phase !== state.prevPhase) {
+      if (phase === "flipping") {
+        state.flipTime = 0;
+        state.idleTime = 0;
+      } else if (phase === "landing" && result) {
+        const currentSpeed =
+          FLIP_SPEED * Math.exp(-FLIP_DECAY * state.flipTime);
+        state.landingComplete = false;
+        state.landingStartAngle = state.flipAngle;
+        state.landingStartY = state.yOffset;
+        state.landingTargetAngle = computeTargetAngle(
+          state.flipAngle,
+          result,
+          currentSpeed,
+        );
+        const distance = state.landingTargetAngle - state.landingStartAngle;
+        state.landingDuration = Math.max(
+          MIN_LANDING_DURATION,
+          Math.min((2 * distance) / currentSpeed, MAX_LANDING_DURATION),
+        );
+        state.landingTime = 0;
+      }
+      state.prevPhase = phase;
+    }
 
-      const prevCos = Math.cos(state.flipAngle - FLIP_SPEED * dt);
+    if (phase === "flipping") {
+      state.flipTime += dt;
+
+      const currentSpeed = FLIP_SPEED * Math.exp(-FLIP_DECAY * state.flipTime);
+      const prevAngle = state.flipAngle;
+      state.flipAngle += currentSpeed * dt;
+
+      if (state.flipTime < TOSS_DURATION) {
+        const t = state.flipTime / TOSS_DURATION;
+        state.yOffset = -TOSS_HEIGHT * Math.sin(Math.PI * Math.pow(t, 0.55));
+      } else {
+        state.yOffset = 0;
+      }
+
+      const prevCos = Math.cos(prevAngle);
       const currCos = Math.cos(state.flipAngle);
       if (prevCos * currCos < 0) {
         play("flipTick");
       }
     } else if (phase === "landing") {
       if (!state.landingComplete) {
-        state.landingProgress += dt / LANDING_DURATION;
+        state.landingTime += dt;
+        const p = Math.min(state.landingTime / state.landingDuration, 1);
+        const eased = 1 - (1 - p) * (1 - p);
+        const prevAngle = state.flipAngle;
 
-        if (state.landingProgress >= 1) {
-          state.landingProgress = 1;
-          state.landingComplete = true;
+        if (p >= 1) {
           state.flipAngle = state.landingTargetAngle;
           state.yOffset = 0;
+          state.landingComplete = true;
           play("land");
-
           setTimeout(onLandingComplete, 0);
         } else {
-          const easedProgress = easeOutCubic(state.landingProgress);
           state.flipAngle =
             state.landingStartAngle +
-            (state.landingTargetAngle - state.landingStartAngle) *
-              easedProgress;
-          state.yOffset = state.landingStartY * (1 - easedProgress);
+            (state.landingTargetAngle - state.landingStartAngle) * eased;
+          state.yOffset = state.landingStartY * (1 - eased);
+        }
+
+        const prevCos = Math.cos(prevAngle);
+        const currCos = Math.cos(state.flipAngle);
+        if (prevCos * currCos < 0) {
+          play("flipTick");
         }
       }
     } else if (phase === "idle") {
@@ -241,7 +277,6 @@ export function CoinSprite() {
     const absScaleX = Math.abs(scaleX);
 
     const isShowingHeads = scaleX >= 0;
-    state.showingSide = isShowingHeads ? "heads" : "tails";
 
     headsGfx.visible = isShowingHeads;
     headsText.visible = isShowingHeads;
