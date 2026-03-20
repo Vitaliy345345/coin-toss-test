@@ -206,7 +206,6 @@ export function CoinSprite() {
       state.flipAngle += FLIP_SPEED * dt;
       state.yOffset = -Math.abs(Math.sin(state.flipAngle * 1.2)) * TOSS_HEIGHT;
 
-      // Play tick sound at each half-flip (when cos crosses zero = coin is edge-on)
       const prevCos = Math.cos(state.flipAngle - FLIP_SPEED * dt);
       const currCos = Math.cos(state.flipAngle);
       if (prevCos * currCos < 0) {
@@ -238,7 +237,6 @@ export function CoinSprite() {
       state.yOffset = Math.sin(state.idleTime * 1.25) * 4;
     }
 
-    // cos(flipAngle) drives the scaleX for a 3D flip illusion
     const scaleX = Math.cos(state.flipAngle);
     const absScaleX = Math.abs(scaleX);
 

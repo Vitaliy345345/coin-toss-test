@@ -30,7 +30,7 @@ function playCoinFlipTick() {
 
 function playWinSound() {
   const ctx = getAudioContext();
-  const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+  const notes = [523.25, 659.25, 783.99, 1046.5];
 
   notes.forEach((freq, i) => {
     const osc = ctx.createOscillator();
@@ -54,7 +54,7 @@ function playWinSound() {
 
 function playLoseSound() {
   const ctx = getAudioContext();
-  const notes = [392.0, 329.63, 261.63]; // G4, E4, C4
+  const notes = [392.0, 329.63, 261.63];
 
   notes.forEach((freq, i) => {
     const osc = ctx.createOscillator();
@@ -101,14 +101,12 @@ export function useSound() {
   const lastTickRef = useRef(0);
 
   const play = useCallback((effect: SoundEffect) => {
-    // Resume AudioContext after user gesture (required by some browsers)
     if (audioCtx?.state === "suspended") {
       audioCtx.resume();
     }
 
     switch (effect) {
       case "flipTick": {
-        // Throttle tick sounds to avoid overwhelming the audio system
         const now = performance.now();
         if (now - lastTickRef.current > 80) {
           lastTickRef.current = now;
